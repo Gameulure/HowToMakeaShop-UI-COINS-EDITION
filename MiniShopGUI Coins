@@ -1,0 +1,243 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+local ShopEvents = ReplicatedStorage:WaitForChild("ShopEvents")
+local OpenShopEvent = ShopEvents:WaitForChild("OpenShop")
+local PurchaseTool = ShopEvents:WaitForChild("PurchaseTool")
+local PurchaseCoinProduct = ShopEvents:WaitForChild("PurchaseCoinProduct")
+local NotifyPlayer = ShopEvents:WaitForChild("NotifyPlayer")
+local ShopTools = ReplicatedStorage:WaitForChild("ShopTools")
+
+-----------------------------------------------------
+-- TOOL PRICES (COINS)
+-----------------------------------------------------
+local toolPrices = {
+	["Lantern"] = 100,
+	["Keycard"] = 475,
+	["MEDKIT"] = 150,
+	["Axe"] = 1750
+}
+
+-----------------------------------------------------
+-- ROBUX → COIN PRODUCTS
+-----------------------------------------------------
+local coinProducts = {
+	{Title = "Buy 1,400 Coins", Key = "1400", Robux = 80},
+	{Title = "Buy 3,000 Coins", Key = "3000", Robux = 150},
+	{Title = "Buy 7,000 Coins", Key = "7000", Robux = 300}
+}
+
+-----------------------------------------------------
+-- GUI SETUP
+-----------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "MiniShopGui"
+gui.ResetOnSpawn = false
+gui.Enabled = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,0,0,0)
+frame.Position = UDim2.new(0.5,0,0.5,0)
+frame.AnchorPoint = Vector2.new(0.5,0.5)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
+
+-----------------------------------------------------
+-- CLOSE BUTTON
+-----------------------------------------------------
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0.15,0,0.08,0)
+closeBtn.Position = UDim2.new(0.85,0,0.90,0)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+closeBtn.Parent = frame
+
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0,8)
+
+-----------------------------------------------------
+-- SOUNDS
+-----------------------------------------------------
+local hoverSound = Instance.new("Sound", gui)
+hoverSound.SoundId = "rbxassetid://80069512616514"
+hoverSound.Volume = 0.5
+
+local clickSound = Instance.new("Sound", gui)
+clickSound.SoundId = "rbxassetid://104632675868370"
+clickSound.Volume = 0.7
+
+closeBtn.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	gui.Enabled = false
+end)
+
+-----------------------------------------------------
+-- TWEEN HELPER
+-----------------------------------------------------
+local function animateFrame(f, size, pos, duration)
+	TweenService:Create(
+		f,
+		TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{Size = size, Position = pos, BackgroundTransparency = 0}
+	):Play()
+end
+
+-----------------------------------------------------
+-- SHOP LAYOUT
+-----------------------------------------------------
+local function createVendingLayout()
+
+	local contentFrame = Instance.new("Frame")
+	contentFrame.Size = UDim2.new(1,0,0.9,0)
+	contentFrame.BackgroundTransparency = 1
+	contentFrame.Parent = frame
+
+	local columns = 2
+	local columnWidth = 1 / columns
+
+	for col = 0, columns - 1 do
+		local colFrame = Instance.new("Frame")
+		colFrame.Size = UDim2.new(columnWidth, -10, 1, -120)
+		colFrame.Position = UDim2.new(col * columnWidth, 5 * col, 0, 0)
+		colFrame.BackgroundTransparency = 1
+		colFrame.Parent = contentFrame
+
+		local layout = Instance.new("UIListLayout", colFrame)
+		layout.Padding = UDim.new(0,10)
+		layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+		local tools = ShopTools:GetChildren()
+
+		for i = col + 1, #tools, columns do
+			local tool = tools[i]
+			local price = toolPrices[tool.Name] or 0
+
+			local slot = Instance.new("Frame")
+			slot.Size = UDim2.new(0.9,0,0,80)
+			slot.BackgroundColor3 = Color3.fromRGB(50,50,50)
+			slot.Parent = colFrame
+
+			Instance.new("UICorner", slot).CornerRadius = UDim.new(0,8)
+
+			local glow = Instance.new("UIStroke", slot)
+			glow.Thickness = 2
+			glow.Color = Color3.fromRGB(100,200,255)
+			glow.Transparency = 0.5
+
+			local nameLabel = Instance.new("TextLabel", slot)
+			nameLabel.Size = UDim2.new(1,0,0.4,0)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.TextScaled = true
+			nameLabel.TextColor3 = Color3.new(1,1,1)
+			nameLabel.Text = tool.Name
+
+			local priceLabel = Instance.new("TextLabel", slot)
+			priceLabel.Size = UDim2.new(1,0,0.2,0)
+			priceLabel.Position = UDim2.new(0,0,0.4,0)
+			priceLabel.BackgroundTransparency = 1
+			priceLabel.TextScaled = true
+			priceLabel.TextColor3 = Color3.new(1,1,0)
+			priceLabel.Text = price .. " Coins"
+
+			local buyBtn = Instance.new("TextButton", slot)
+			buyBtn.Size = UDim2.new(0.6,0,0.3,0)
+			buyBtn.Position = UDim2.new(0.2,0,0.65,0)
+			buyBtn.Text = "Buy"
+			buyBtn.TextColor3 = Color3.new(1,1,1)
+			buyBtn.BackgroundColor3 = Color3.fromRGB(60,120,255)
+
+			Instance.new("UICorner", buyBtn).CornerRadius = UDim.new(0,6)
+
+			buyBtn.MouseButton1Click:Connect(function()
+				clickSound:Play()
+				PurchaseTool:FireServer(tool.Name)
+				gui.Enabled = false
+			end)
+		end
+	end
+
+	-----------------------------------------------------
+	-- COIN PACKS (ROBLOX PURCHASES)
+	-----------------------------------------------------
+	local coinFrame = Instance.new("Frame", contentFrame)
+	coinFrame.Size = UDim2.new(1,0,0,110)
+	coinFrame.Position = UDim2.new(0,0,1,-110)
+	coinFrame.BackgroundTransparency = 1
+
+	local layout = Instance.new("UIListLayout", coinFrame)
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.Padding = UDim.new(0,10)
+
+	for _, offer in ipairs(coinProducts) do
+		local slot = Instance.new("Frame", coinFrame)
+		slot.Size = UDim2.new(0,150,1,-20)
+		slot.BackgroundColor3 = Color3.fromRGB(45,45,45)
+
+		Instance.new("UICorner", slot).CornerRadius = UDim.new(0,10)
+
+		local title = Instance.new("TextLabel", slot)
+		title.Size = UDim2.new(1,0,0.4,0)
+		title.BackgroundTransparency = 1
+		title.TextScaled = true
+		title.TextColor3 = Color3.new(1,1,1)
+		title.Text = offer.Title
+
+		local robux = Instance.new("TextLabel", slot)
+		robux.Size = UDim2.new(1,0,0.2,0)
+		robux.Position = UDim2.new(0,0,0.4,0)
+		robux.BackgroundTransparency = 1
+		robux.TextScaled = true
+		robux.TextColor3 = Color3.fromRGB(0,255,0)
+		robux.Text = offer.Robux .. " Robux"
+
+		local buyBtn = Instance.new("TextButton", slot)
+		buyBtn.Size = UDim2.new(0.6,0,0.3,0)
+		buyBtn.Position = UDim2.new(0.2,0,0.65,0)
+		buyBtn.Text = "Buy"
+		buyBtn.TextColor3 = Color3.new(1,1,1)
+		buyBtn.BackgroundColor3 = Color3.fromRGB(0,180,0)
+
+		Instance.new("UICorner", buyBtn).CornerRadius = UDim.new(0,8)
+
+		buyBtn.MouseButton1Click:Connect(function()
+			clickSound:Play()
+			PurchaseCoinProduct:FireServer(offer.Key)
+			gui.Enabled = false
+		end)
+	end
+end
+
+createVendingLayout()
+
+-----------------------------------------------------
+-- OPEN SHOP
+-----------------------------------------------------
+OpenShopEvent.OnClientEvent:Connect(function()
+	gui.Enabled = true
+	animateFrame(frame, UDim2.new(0.4,0,0.6,0), UDim2.new(0.5,0,0.5,0), 0.3)
+end)
+
+-----------------------------------------------------
+-- NOTIFICATIONS
+-----------------------------------------------------
+NotifyPlayer.OnClientEvent:Connect(function(message)
+	local notif = Instance.new("TextLabel", gui)
+	notif.Size = UDim2.new(0.3,0,0.05,0)
+	notif.Position = UDim2.new(0.35,0,0.75,0)
+	notif.BackgroundColor3 = Color3.fromRGB(255,50,50)
+	notif.TextColor3 = Color3.new(1,1,1)
+	notif.TextScaled = true
+	notif.Text = message
+
+	Instance.new("UICorner", notif).CornerRadius = UDim.new(0,10)
+
+	task.wait(2)
+	notif:Destroy()
+end)
