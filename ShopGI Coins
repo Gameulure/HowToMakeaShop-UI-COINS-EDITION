@@ -1,0 +1,102 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+-----------------------------------------------------
+-- SERVICES & EVENTS
+-----------------------------------------------------
+local ShopEvents = ReplicatedStorage:WaitForChild("ShopEvents")
+local PurchaseTool = ShopEvents:WaitForChild("PurchaseTool")
+local NotifyPlayer = ShopEvents:WaitForChild("NotifyPlayer")
+local PurchaseCoinProduct = ShopEvents:WaitForChild("PurchaseCoinProduct") -- Robux → Coins
+
+local ShopTools = ReplicatedStorage:WaitForChild("ShopTools")
+
+-----------------------------------------------------
+-- TOOL PRICES (COINS)
+-----------------------------------------------------
+local toolPrices = {
+	["Lantern"] = 100,
+	["Keycard"] = 475,
+	["MEDKIT"] = 150,
+	["Axe"] = 1750
+}
+
+-----------------------------------------------------
+-- ROBUX PRODUCT IDS (COIN PACKS)
+-----------------------------------------------------
+local coinProducts = {
+	["1400"] = 3452446270, -- replace with your real Product IDs
+	["3000"] = 3452446538,
+	["7000"] = 3452446863
+}
+
+-----------------------------------------------------
+-- PROCESS ROBUX PURCHASES → GRANT COINS
+-----------------------------------------------------
+MarketplaceService.ProcessReceipt = function(receiptInfo)
+	local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+	if not player then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	local stats = player:FindFirstChild("leaderstats")
+	if not stats then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	local coins = stats:FindFirstChild("Coins")
+	if not coins then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	if receiptInfo.ProductId == coinProducts["1400"] then
+		coins.Value += 1400
+	elseif receiptInfo.ProductId == coinProducts["3000"] then
+		coins.Value += 3000
+	elseif receiptInfo.ProductId == coinProducts["7000"] then
+		coins.Value += 7000
+	else
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+-----------------------------------------------------
+-- PROMPT ROBUX PURCHASE FROM CLIENT
+-----------------------------------------------------
+PurchaseCoinProduct.OnServerEvent:Connect(function(player, productKey)
+	local productId = coinProducts[productKey]
+	if productId then
+		MarketplaceService:PromptProductPurchase(player, productId)
+	end
+end)
+
+-----------------------------------------------------
+-- TOOL PURCHASES (COINS)
+-----------------------------------------------------
+PurchaseTool.OnServerEvent:Connect(function(player, toolName)
+	local toolTemplate = ShopTools:FindFirstChild(toolName)
+	if not toolTemplate then return end
+
+	local stats = player:FindFirstChild("leaderstats")
+	if not stats then return end
+
+	local coins = stats:FindFirstChild("Coins")
+	if not coins then return end
+
+	local price = toolPrices[toolName] or 0
+
+	if coins.Value >= price then
+		coins.Value -= price
+
+		local clonedTool = toolTemplate:Clone()
+		clonedTool.Parent = player:WaitForChild("Backpack")
+	else
+		NotifyPlayer:FireClient(
+			player,
+			"Not enough Coins to buy " .. toolName .. "!"
+		)
+	end
+end)
