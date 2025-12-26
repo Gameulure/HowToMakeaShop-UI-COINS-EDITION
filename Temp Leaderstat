@@ -1,0 +1,12 @@
+game.Players.PlayerAdded:Connect(function(player)
+	-- Create leaderstats folder
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
+
+	-- Create Coins value
+	local coins = Instance.new("IntValue")
+	coins.Name = "Coins"
+	coins.Value = 500  -- starting amount
+	coins.Parent = leaderstats
+end)
